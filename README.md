@@ -1,256 +1,216 @@
 # 3X-UI User Manager
 
-**CLI & HTTP API для автоматизации добавления клиентов (VLESS, Shadowsocks) в панель 3X‑UI**, генерации конфигурационных файлов и QR-кодов.
+**CLI & HTTP API для автоматизации добавления клиентов (VLESS, Shadowsocks, WireGuard) в панели 3X‑UI и WG‑Easy**, генерации конфигурационных файлов и QR-кодов.
 
 ---
 
 ## 📂 Структура проекта
 ```bash
 3x-ui-user-manager/
-├── .env.example          # Пример окружения
-├── package.json          # Зависиимости и скрипты
-├── README.md             # Краткое описание проекта
-├── README_FULL.md        # Подробная документация (этот файл)
-├── src/                  # Исходный код
-│   ├── index.js          # Точка входа: HTTP-сервер Express
-│   ├── routes/           # HTTP-маршруты
-│   │   └── users.js      # POST /api/users
-│   ├── controllers/      # Логика работы API
-│   │   └── usersController.js  # Обработка запроса, создание файлов
-│   └── utils/            # Утилиты
-│       └── xuiClient.js  # HTTP-клиент для 3X‑UI API (login, get, update)
-└── users/                # Динамически создаваемые папки пользователей
-    └── <userId>/         # Пример: users/ABC123/
-        ├── config.txt    # Конфигурационная строка (VLESS/SS)
-        └── qr.jpeg       # QR‑код для быстрого импорта
-```  
+├── .env.example           # Пример окружения
+├── package.json           # Зависимости и скрипты
+├── README.md              # Краткое описание проекта (этот файл)
+├── README_FULL.md         # Подробная документация
+├── src/                   # Исходный код
+│   ├── index.js           # Точка входа: HTTP‑сервер Express
+│   ├── routes/            # HTTP‑маршруты
+│   │   ├── users.js       # POST /api/users (VLESS/SS)
+│   │   └── wg.js          # POST /api/wg/users (WireGuard)
+│   ├── controllers/       # Логика обработки запросов
+│   │   ├── usersController.js  # VLESS/SS: создание файлов
+│   │   └── wgController.js     # WireGuard: создание файлов
+│   └── utils/             # Утилиты
+│       ├── xuiClient.js   # HTTP‑клиент 3X‑UI API
+│       └── wgApiClient.js # HTTP‑клиент WG‑Easy API
+└── users/                 # Динамические папки с клиентами
+    ├── vless/             # VLESS‑клиенты
+    │   └── <id5>/
+    │       ├── config.conf
+    │       └── qr.jpeg
+    ├── ss/                # Shadowsocks‑клиенты
+    │   └── <id5>/
+    │       ├── config.conf
+    │       └── qr.jpeg
+    └── wg/                # WireGuard‑клиенты
+        └── <id5>/
+            ├── config.conf
+            └── qr.jpeg
+```
 
 ---
 
 ## ⚙️ Установка и запуск
 
-1. **Клонировать или создать папку проекта**
+1. **Клонировать проект и установить зависимости**
    ```bash
-   mkdir 3x-ui-user-manager && cd 3x-ui-user-manager
+   git clone <repo-url>  && cd 3x-ui-user-manager
+   npm install
    ```
 
-2. **Инициализировать `package.json` и установить зависимости**
-   ```bash
-   npm init -y
-   npm install express axios axios-cookiejar-support tough-cookie dotenv nanoid uuid qrcode readline-promises
-   npm install --save-dev nodemon
-   ```
-
-3. **Настроить переменные окружения**
+2. **Настроить `.env`**
    ```bash
    cp .env.example .env
-   # отредактировать .env, указав:
-   # XUI_URL, XUI_USER, XUI_PASS, PORT (опционально)
+   # 3X-UI API:
+   XUI_URL=
+   XUI_USER=
+   XUI_PASS=
+   # WG‑Easy API:
+   WG_PROTOCOL=http
+   WG_HOST=77.105.164.42
+   WG_PORT=51821
+   WG_API_KEY=22170313
    ```
 
-4. **Добавить скрипты в `package.json`**
-   ```diff
+3. **Добавить скрипты в `package.json`**
+   ```json
    "scripts": {
--    "test": "echo \"Error: no test specified\" && exit 1"
-+    "start": "node src/index.js",
-+    "dev": "nodemon src/index.js"
+     "start": "node src/index.js",
+     "dev":   "nodemon src/index.js"
    }
    ```
 
-5. **Запустить сервер**
-   - **Production**:  `npm start`
-   - **Development**: `npm run dev` (автоперезапуск при изменениях)
-
-6. **(Опционально) Проверить CLI-скрипт**
-   ```bash
-   node src/cli.js   # если есть CLI-версия или `node add-users-3x-ui.js`
-   ```
+4. **Запустить сервер**
+   - **Production**: `npm start`
+   - **Development**: `npm run dev`
 
 ---
 
-## ⚙️ Файл `.env.example`
-```dotenv
-XUI_URL=
-XUI_USER=
-XUI_PASS=
-# PORT=3000      # опционально
-```  
+## 🚀 Быстрый старт: HTTP API
 
----
-
-## 🚀 Быстрый старт
-
-### HTTP API
-
-**Добавить пользователя**
-
+### 1) Добавление VLESS‑клиента
 ```bash
 curl -X POST http://localhost:3000/api/users \
-  -H "Content-Type: application/json" \
-  -d '{"inboundType":"vless","userId":"ABC123"}'
+     -H "Content-Type: application/json" \
+     -d '{
+           "inboundType": "vless"
+         }'
 ```
-
-**Пример успешного ответа**
+**Ответ**:
 ```json
 {
   "success": true,
-  "id": "ABC123",
-  "uuid": "bbfad557-28f2-47e5-9f3d-e3c7f532fbda",
-  "config": "vless://bbfad557-...",
+  "id": "a1b2c",                // 5‑символьный UID
+  "uuid": "...",
+  "config": "vless://...#a1b2c",
   "files": {
-    "cfgPath": "/.../users/ABC123/config.txt",
-    "qrPath": "/.../users/ABC123/qr.jpeg"
+    "cfgPath": "/.../users/vless/a1b2c/config.conf",
+    "qrPath":  "/.../users/vless/a1b2c/qr.jpeg"
   }
 }
 ```
 
-- В папке `users/ABC123` появятся `config.txt` и `qr.jpeg`.
-
-### CLI (Интерактивный режим)
-
+### 2) Добавление Shadowsocks‑клиента
 ```bash
-node src/cli.js
+curl -X POST http://localhost:3000/api/users \
+     -H "Content-Type: application/json" \
+     -d '{
+           "inboundType": "shadowsocks"
+         }'
 ```
+**Ответ** аналогично (папка `users/ss/<id5>/`).
 
-1. Ввод имени inbound (1 – VLESS, 2 – Shadowsocks).
-2. Опциональный ввод собственного userId (или генерация nanoid).
-3. Скрипт выводит логи и создаёт папку с файлами.
+### 3) Добавление WireGuard‑клиента
+```bash
+curl -X POST http://localhost:3000/api/wg/users \
+     -H "Content-Type: application/json" \
+     -d '{"name":"wg-client-01"}'
+```
+**Ответ**:
+```json
+{
+  "client": { /* объект клиента WG‑Easy */ },
+  "paths": {
+    "config": "users/wg/1a2b3/config.conf",
+    "qr":     "users/wg/1a2b3/qr.jpeg"
+  }
+}
+```
 
 ---
 
-## 📖 Описание ключевых файлов
+## 📄 Описание новых файлов для WireGuard
 
-### 1. `src/index.js`
+### 1. `src/utils/wgApiClient.js`
 ```js
 require('dotenv').config();
-const express = require('express');
-const usersRouter = require('./routes/users');
-
-const app = express();
-app.use(express.json());
-app.use('/api/users', usersRouter);
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+let WG = require('wg-easy-api');
+const WireGuardAPI = WG.default || WG.WireGuardAPI || WG;
+const api = new WireGuardAPI(
+  process.env.WG_PROTOCOL,
+  process.env.WG_HOST,
+  parseInt(process.env.WG_PORT, 10),
+  process.env.WG_API_KEY
+);
+module.exports = api;
 ```
-- Инициализирует сервер Express.
-- Подключает JSON-парсер и роуты.
+- Инициирует HTTP‑клиент WG‑Easy API с авторизацией по API‑ключу.
 
-### 2. `src/routes/users.js`
+### 2. `src/controllers/wgController.js`
+```js
+const fs    = require('fs');
+const path  = require('path');
+const sharp = require('sharp');
+const api   = require('../utils/wgApiClient');
+
+async function createUser(req, res, next) {
+  try {
+    const { name } = req.body;
+    // Авторизация
+    if (typeof api.initSession === 'function') {
+      await api.initSession({ password: process.env.WG_API_KEY });
+    } else {
+      await api.createSession({ password: process.env.WG_API_KEY });
+    }
+    // Создание клиента и поиск в списке
+    const { status } = await api.createClient({ name });
+    if (status !== 'success') return res.status(400).json({ error: '...' });
+    const list = await api.getClients();
+    const client = list.data.find(c => c.name === name);
+    const id5 = client.id.slice(0,5);
+    // Запрос конфига и QR
+    const qrRes = await api.getClientQRCode({ clientId: client.id });
+    const cfgRes= await api.getClientConfig({ clientId: client.id });
+    // Папка и файлы
+    const dir = path.join(process.cwd(), 'users', 'wg', id5);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir,'config.conf'), cfgRes.data);
+    await sharp(Buffer.from(qrRes.data)).jpeg().toFile(path.join(dir,'qr.jpeg'));
+    res.json({ client, paths: { config: `users/wg/${id5}/config.conf`, qr: `users/wg/${id5}/qr.jpeg` }});
+  } catch (e) { next(e); }
+}
+module.exports = { createUser };
+```
+- Создаёт клиента, сохраняет `config.conf` и `qr.jpeg` в папку `users/wg/<id5>/`.
+
+### 3. `src/routes/wg.js`
 ```js
 const express = require('express');
-const { addUser } = require('../controllers/usersController');
-const router = express.Router();
-
-// POST /api/users
-router.post('/', addUser);
-
+const router  = express.Router();
+const { createUser } = require('../controllers/wgController');
+router.post('/users', createUser);
 module.exports = router;
 ```
-- Определяет единственный маршрут для добавления пользователя.
-
-### 3. `src/controllers/usersController.js`
-```js
-const fs = require('fs');
-const path = require('path');
-const QRCode = require('qrcode');
-const { nanoid } = require('nanoid');
-const { v4: uuidv4 } = require('uuid');
-const { addClientToXui } = require('../utils/xuiClient');
-
-async function addUser(req, res) {
-  try {
-    const { inboundType, userId } = req.body;
-    const inboundId = inboundType === 'vless' ? 2 : 5;
-    const id6 = userId?.slice(0,6) || nanoid(6);
-    const uuid = uuidv4();
-    console.log(`Adding client to XUI: inbound=${inboundId}, id6=${id6}, uuid=${uuid}`);
-
-    // Добавление через utils/xuiClient
-    const { host, port } = await addClientToXui(inboundId, { uuid, id6 });
-
-    // Файловые операции
-    const userDir = path.join(process.cwd(), 'users', id6);
-    fs.mkdirSync(userDir, { recursive: true });
-    const config = inboundType === 'vless'
-      ? `vless://${uuid}@${host}:${port}?encryption=none&security=reality#${id6}`
-      : `ss://${Buffer.from(`aes-128-gcm:${uuid}@${host}:${port}`).toString('base64')}#${id6}`;
-    fs.writeFileSync(path.join(userDir, 'config.txt'), config);
-    await QRCode.toFile(path.join(userDir, 'qr.jpeg'), config, { type: 'image/jpeg' });
-
-    res.json({ success: true, id: id6, uuid, config, files: {
-      cfgPath: path.join(userDir, 'config.txt'),
-      qrPath: path.join(userDir, 'qr.jpeg')
-    }});
-  } catch (err) {
-    console.error('Error in addUser:', err.message);
-    res.status(500).json({ success: false, message: err.message });
-  }
-}
-
-module.exports = { addUser };
-```
-- Логирует каждый шаг.
-- Вызывает `addClientToXui` для работы с панелью.
-- Создаёт директорию, сохраняет конфиг и QR.
-
-### 4. `src/utils/xuiClient.js`
-```js
-const { wrapper } = require('axios-cookiejar-support');
-const { CookieJar } = require('tough-cookie');
-const axios = require('axios');
-require('dotenv').config();
-
-const PANEL = {
-  baseURL: process.env.XUI_URL,
-  username: process.env.XUI_USER,
-  password: process.env.XUI_PASS
-};
-
-async function login(client) {
-  await client.post('/login', new URLSearchParams({
-    username: PANEL.username,
-    password: PANEL.password
-  }).toString(), { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-}
-
-async function addClientToXui(inboundId, { uuid, id6 }) {
-  const jar = new CookieJar();
-  const client = wrapper(axios.create({ baseURL: PANEL.baseURL, jar, withCredentials: true }));
-  await login(client);
-
-  // Получаем текущую конфигурацию инбаунда
-  const { data } = await client.get(`/panel/api/inbounds/get/${inboundId}`);
-  const conf = data.obj;
-  const s = JSON.parse(conf.settings);
-  s.clients = s.clients || [];
-  s.clients.push({ id: uuid, email: id6, enable: true, limitIp:0, totalGB:0, expiryTime:0, flow:'', tgId:'', subId:id6, reset:0 });
-
-  // Отправляем полный update
-  await client.post(`/panel/api/inbounds/update/${inboundId}`, {
-    ...conf,
-    settings: JSON.stringify(s)
-  }, { headers: { 'Content-Type': 'application/json' } });
-
-  const { host, port } = new URL(PANEL.baseURL);
-  return { host, port: conf.port };
-}
-
-module.exports = { addClientToXui };
-```
-- Выполняет login → get → update для добавления клиента.
-- Возвращает host и port для генерации конфигов.
+- Маршрут POST `/api/wg/users` для создания WireGuard‑клиента.
 
 ---
 
-## ⚙️ Разработка и тестирование
-
-- **Логи**: все важные шаги выводятся в консоль.
-- **HTTP**: используйте Postman или `curl`.
-- **CLI**: при наличии `src/cli.js` можно запускать `node src/cli.js`.
+## 🎛️ Полная структура с новыми файлами
+```bash
+src/
+├── routes/
+│   ├── users.js
+│   └── wg.js
+├── controllers/
+│   ├── usersController.js
+│   └── wgController.js
+├── utils/
+│   ├── xuiClient.js
+│   └── wgApiClient.js
+└── index.js
+```
 
 ---
 
-## 📝 Лицензия
+## 📜 Лицензия
 MIT © Max Dolya
 
