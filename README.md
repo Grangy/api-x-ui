@@ -70,9 +70,9 @@
 
 ## ⚙️ Файл `.env.example`
 ```dotenv
-XUI_URL=http://95.164.53.215:11706
-XUI_USER=root
-XUI_PASS=DMax22170313
+XUI_URL=
+XUI_USER=
+XUI_PASS=
 # PORT=3000      # опционально
 ```  
 
